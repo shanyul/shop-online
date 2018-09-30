@@ -6,8 +6,10 @@
  */
 
 require('./bootstrap');
+require('sweetalert');
 
 window.Vue = require('vue');
+
 
 /**
  * Next, we will create a fresh Vue application instance and attach it to
@@ -16,6 +18,9 @@ window.Vue = require('vue');
  */
 
 Vue.component('example-component', require('./components/ExampleComponent.vue'));
+
+require('./components/SelectDistrict');
+require('./components/UserAddressesCreateAndEdit');
 
 const app = new Vue({
     el: '#app'
