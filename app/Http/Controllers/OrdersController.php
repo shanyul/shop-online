@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Events\OrderReviewed;
+use App\Exceptions\CouponCodeUnavailableException;
 use App\Exceptions\InvalidRequestException;
+use App\Http\Requests\ApplyRefundRequest;
 use App\Http\Requests\OrderRequest;
 use App\Http\Requests\Request;
 use App\Http\Requests\SendReviewRequest;
+use App\Models\CouponCode;
 use App\Models\UserAddress;
 use App\Models\Order;
 use App\Services\OrderService;
@@ -18,8 +21,17 @@ class OrdersController extends Controller
     {
         $user    = $request->user();
         $address = UserAddress::find($request->input('address_id'));
+        $coupon  = null;
 
-        return $orderService->store($user, $address, $request->input('remark'), $request->input('items'));
+        // 如果用户提交了优惠码
+        if ($code = $request->input('coupon_code')) {
+            $coupon = CouponCode::where('code', $code)->first();
+            if (!$coupon) {
+                throw new CouponCodeUnavailableException('优惠券不存在');
+            }
+        }
+
+        return $orderService->store($user, $address, $request->input('remark'), $request->input('items'), $coupon);
     }
 
     public function index(Request $request)
@@ -100,5 +112,29 @@ class OrdersController extends Controller
         });
 
         return redirect()->back();
+    }
+
+    public function applyRefund(Order $order, ApplyRefundRequest $request)
+    {
+        // 校验订单是否属于当前用户
+        $this->authorize('own', $order);
+        // 判断订单是否已付款
+        if (!$order->paid_at) {
+            throw new InvalidRequestException('该订单未支付，不可退款');
+        }
+        // 判断订单退款状态是否正确
+        if ($order->refund_status !== Order::REFUND_STATUS_PENDING) {
+            throw new InvalidRequestException('该订单已经申请过退款，请勿重复申请');
+        }
+        // 将用户输入的退款理由放到订单的 extra 字段中
+        $extra                  = $order->extra ?: [];
+        $extra['refund_reason'] = $request->input('reason');
+        // 将订单退款状态改为已申请退款
+        $order->update([
+            'refund_status' => Order::REFUND_STATUS_APPLIED,
+            'extra'         => $extra,
+        ]);
+
+        return $order;
     }
 }
