@@ -79,7 +79,7 @@ abstract class CommonProductsController extends Controller
         $form->editor('description', '商品描述')->rules('required');
         $form->radio('on_sale', '上架')->options(['1' => '是', '0' => '否'])->default('0');
 
-        // 调用自定义方法
+        // 调用自定义方法a
         $this->customForm($form);
 
         $form->hasMany('skus', '商品 SKU', function (Form\NestedForm $form) {
